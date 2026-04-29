@@ -56,6 +56,38 @@ bibliography: "input/bib/ciencia_abierta.bib"
 csl: "input/bib/apa.csl"
 ---
 
+```{r}
+library(tidyverse)
+library(haven)
+load("input/data/original/ELSOC_Long_2016_2023.RData")
+
+# Seleccionar individuos que completaron su respectiva muestra completa
+# - Muestra 1: participaron en las 7 olas (n == 7)
+# - Muestra 2: participaron en las 5 olas (n == 5)
+elsoc_selected_full <- elsoc_long_2016_2023 %>%
+  filter(!is.na(ola)) %>%
+  group_by(idencuesta) %>%
+  filter((first(muestra) == 1 & n() == 7) | (first(muestra) == 2 & n() == 5)) %>%
+  ungroup()
+
+# Conteo por muestra (debería dar M1 = 1303, M2 = 770)
+elsoc_selected_full %>% distinct(idencuesta, muestra) %>% count(muestra)
+
+# Variante alternativa: considerar solo hasta la ola 6 en la muestra 1 y hasta la ola 4 en la muestra 2
+# Esta selección sirve para revisar cómo cambia el panel, pero no para el gráfico de 2023,
+# porque el Congreso Nacional está medido en la ola 7.
+elsoc_selected_6_4 <- elsoc_long_2016_2023 %>%
+  filter(!is.na(ola)) %>%
+  filter((muestra == 1 & ola <= 6) | (muestra == 2 & ola <= 4)) %>%
+  group_by(idencuesta) %>%
+  filter((first(muestra) == 1 & n() == 6) | (first(muestra) == 2 & n() == 4)) %>%
+  ungroup()
+
+
+
+
+
+```
 
 # Selección de artículo/reporte
 
@@ -67,22 +99,42 @@ csl: "input/bib/apa.csl"
 
 Análisis detallado del artículo seleccionado, evaluando los siguientes aspectos:
 
-  -   **Disponibilidad de datos**: ¿El artículo proporciona acceso a los datos utilizados en el estudio? Si no es así, ¿qué dificultades se enfrentaron para obtener los datos?
-  -   **Disponibilidad de código**: ¿El artículo proporciona acceso al código utilizado para el análisis? Si es así, ¿cómo se puede acceder?
-  -   **Documentación**: ¿El artículo incluye una descripción clara de los métodos y procedimientos utilizados en el estudio? ¿Es suficiente para que otro investigador pueda replicar el estudio?
-  -   **Transparencia**: ¿El artículo proporciona información sobre los posibles conflictos de interés, financiamiento, y otros aspectos relacionados con la transparencia de la investigación?   
+  -   **Disponibilidad de datos**: Si bien el informe de Radiografía de la Cohesión Social en Chile 2016-2023 no ofrece un acceso directo o descarga directa de las bases de datos dentro del documento, estos son de fácil acceso mediante una búsqueda rápida en la web. La fuente de datos de este reporte es el Estudio Longitudinal Social de Chile (ELSOC), desarrollado por el Centro de Estudios de Conflicto y Cohesión Social (COES). El centro suguiere mantiener un compromiso con la transparencia y el uso público de su información; por lo que las bases de datos de las siete olas que componen el estudio se encuentran disponibles de manera abierta para investigadores y público general en el repositorio digital del sitio.
+
+  -   **Disponibilidad de código**: El documento de la Radiografía de la Cohesión Social no proporciona código utilizado para el procesamiento y análisis de los datos. Si bien en general COES mantiene un compromiso con los principios de ciencia abierta, para esta publicacion en particular no se encuentra el codigo utilizado para el procesamiento de los datos y la generación de los resultados presentados en el informe.
+
+  -   **Documentación**: El reporte de la Radiografía de la Cohesión Social incluye una descripción  del método y filtro muestral para su elaboracion. El documento especifica con precisión el diseño de la muestra, las variables seleccionadas y los filtros muestrales aplicados para cada analisis. La transparencia metodológica es suficiente para que, contando únicamente con la base de datos del estudio (ELSOC), se pueda replicar procesamiento de la información y llegar a los mismos resultados presentados en el informe.
+
+  -   **Transparencia**: Se presenta como un trabajo riguroso financiado por fondos públicos a través de la ANID y ejecutado por el centro COES, con el patrocinio de destacadas universidades. Se cuenta con identificación del equipo academico y tectnico. Se describe minuciosamente el diseño muestral y el marco conceptual del Ministerio de Desarrollo Social. No se incluye una declaración explícita de conflictos de interés.
 
 # Análisis reproducible
 
-Seleccionar un resultado específico del artículo (por ejemplo, una tabla de resultados o una figura) y tratar de reproducirlo utilizando los datos y el código proporcionados. Documentar el proceso de reproducción, incluyendo cualquier dificultad encontrada y cómo se resolvió.
+Nos proponemos a continuacion repricar el apartado de 
 
 ## Resultado a reproducir
 
 - Imagen de tabla(s), figura(s) o resultado específico del artículo seleccionado, junto a una breve descripción.
 
+La figura a reproducir corresponde al grado de confianza en el Congreso Nacional 2023, recodificando la variable `c05_07` de la siguiente manera: 1 = Nada, 2 = Poca, y 3 a 5 = Algo, bastante o mucha.
+
 ## Proceso de reproducción
 
 - Descripción detallada del proceso seguido para reproducir el resultado seleccionado, incluyendo los pasos realizados, las herramientas utilizadas, y cualquier ajuste necesario para lograr la reproducción. Incluye las siguientes sub secciones:
+
+El proceso de reproduccion consistio en intentar la generacion de los analisis presentado en los graficos a partir de la base de datos utilizada en el documento.
+
+Para esto se procuro replicar el mismo metodo de filtrado de la muestra: Aquellos individuos que participaron en las 7 olas de la muestra analitica y en las 5 olas de la muestra de refresco para posteriormente generar los graficos de interes.
+
+Segun el estudio, luego de este filtro, se obtiene una muestra de 1303 individuos para la muestra analitica y 770 individuos para la muestra de refresco. Sin embargo, al aplicar el mismo filtro e intentando bajo diferentes metodos, se obtuvo una muestra de 1176 individuos para la muestra analitica y 661 individuos para la muestra de refresco.
+
+
+
+
+
+
+
+
+
 
 ### Procesamiento
 
@@ -90,9 +142,197 @@ Seleccionar un resultado específico del artículo (por ejemplo, una tabla de re
 
 - Los datos originales deben ser llamados desde input/data/original, el código de procesamiento se debe incluir en este mismo archivo (reporte-repro.qmd).
 
+```{r}
+library(tidyverse)
+library(haven)
+load("input/data/original/ELSOC_Long_2016_2023.RData")
+
+# Seleccionar individuos que completaron su respectiva muestra completa
+# - Muestra 1: participaron en las 7 olas (n == 7)
+# - Muestra 2: participaron en las 5 olas (n == 5)
+elsoc_selected_full <- elsoc_long_2016_2023 %>%
+  filter(!is.na(ola)) %>%
+  group_by(idencuesta) %>%
+  filter((first(muestra) == 1 & n() == 7) | (first(muestra) == 2 & n() == 5)) %>%
+  ungroup()
+
+
+# Conteo por muestra (debería dar M1 = 1303, M2 = 770)
+elsoc_selected_full %>% distinct(idencuesta, muestra) %>% count(muestra)
+
+
+
+
+
+```
+
+
 ### Reproducción
 
 - Generación de tabla o figura a reproducir.
+
+Poder Judicial Barra
+```{r graf-congreso-2023-6-4, fig.cap = 'Grado de confianza en el Congreso Nacional 2023 con filtro hasta ola 6/4'}
+
+elsoc_selected_6_4 <- elsoc_long_2016_2023 %>%
+  filter(!is.na(ola)) %>%
+  filter((muestra == 1 & ola <= 6) | (muestra == 2 & ola <= 4)) %>%
+  group_by(idencuesta) %>%
+  filter((first(muestra) == 1 & n() == 6) | (first(muestra) == 2 & n() == 4)) %>%
+  ungroup()
+
+elsoc_selected_6_4 %>% 
+  filter(ola == 6) %>% 
+  drop_na(c05_07) %>% 
+  mutate(conf_congreso = case_when(
+    c05_07 == 1 ~ "Nada",
+    c05_07 == 2 ~ "Poca",
+    c05_07 %in% 3:5 ~ "Algo, bastante o mucha",
+    TRUE ~ NA_character_
+  )) %>% 
+  filter(!is.na(conf_congreso)) %>% 
+  count(conf_congreso) %>% 
+  mutate(prop = n / sum(n),
+         conf_congreso = factor(conf_congreso, levels = c("Nada", "Poca", "Algo, bastante o mucha"))) %>% 
+  ggplot(aes(x = conf_congreso, y = prop, fill = conf_congreso, label = scales::percent(prop, accuracy = 1))) +
+  geom_col(width = 0.35) +
+  geom_text(vjust = -0.4, size = 4) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_fill_manual(values = c("Nada" = "#9BD44C", "Poca" = "#4D7DD1", "Algo, bastante o mucha" = "#7633A5")) +
+  labs(title = "Grado de confianza: En el congreso nacional",
+       subtitle = "Submuestra hasta ola 6/4",
+       x = NULL,
+       y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 10))
+
+
+
+```
+Poder judicial Long
+```{r graf-congreso-olas-7-5, fig.cap = 'Evolución del grado de confianza en el Congreso Nacional con filtro 7/5'}
+
+elsoc_selected_full %>% 
+  filter(tipo_atricion == 1, !is.na(ola)) %>% 
+  drop_na(c05_07) %>% 
+  mutate(conf_congreso = case_when(
+    c05_07 == 1 ~ "Nada",
+    c05_07 == 2 ~ "Poca",
+    c05_07 %in% 3:5 ~ "Algo, bastante o mucha",
+    TRUE ~ NA_character_
+  )) %>% 
+  filter(!is.na(conf_congreso)) %>% 
+  count(ola, conf_congreso) %>% 
+  group_by(ola) %>% 
+  mutate(prop = n / sum(n)) %>% 
+  ungroup() %>% 
+  mutate(conf_congreso = factor(conf_congreso, levels = c("Nada", "Poca", "Algo, bastante o mucha"))) %>% 
+  ggplot(aes(x = ola, y = prop, color = conf_congreso, group = conf_congreso, label = scales::percent(prop, accuracy = 1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.5, size = 3) +
+    scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_color_manual(values = c("Nada" = "#7AD151", "Poca" = "#2A9AB7", "Algo, bastante o mucha" = "#440154")) +
+  labs(title = "Grado de confianza: El Congreso Nacional",
+      subtitle = "Muestra 1 y 2 sin atrición; NA excluidos del porcentaje",
+       x = NULL,
+       y = NULL,
+       color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0),
+        plot.subtitle = element_text(hjust = 0),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10))
+
+#---------------------------------------
+
+elsoc_selected_full %>% 
+  filter(muestra == 1, !is.na(ola)) %>% 
+  drop_na(c05_07) %>% 
+  mutate(conf_congreso = case_when(
+    c05_07 == 1 ~ "Nada",
+    c05_07 == 2 ~ "Poca",
+    c05_07 %in% 3:5 ~ "Algo, bastante o mucha",
+    TRUE ~ NA_character_
+  )) %>% 
+  filter(!is.na(conf_congreso)) %>% 
+  count(ola, conf_congreso) %>% 
+  group_by(ola) %>% 
+  mutate(prop = n / sum(n)) %>% 
+  ungroup() %>% 
+  mutate(conf_congreso = factor(conf_congreso, levels = c("Nada", "Poca", "Algo, bastante o mucha"))) %>% 
+  ggplot(aes(x = ola, y = prop, color = conf_congreso, group = conf_congreso, label = scales::percent(prop, accuracy = 1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.5, size = 3) +
+  scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_color_manual(values = c("Nada" = "#7AD151", "Poca" = "#2A9AB7", "Algo, bastante o mucha" = "#440154")) +
+  labs(title = "Grado de confianza: El Congreso Nacional",
+       subtitle = "Solo muestra 1",
+       x = NULL,
+       y = NULL,
+       color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0),
+        plot.subtitle = element_text(hjust = 0),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10))
+
+```
+
+Confianza en partidos politicos
+
+```{r graf-partidos-2023-7-5, fig.cap = 'Grado de confianza en los partidos políticos 2023 con filtro 7/5'}
+
+elsoc_selected_full %>% 
+  filter(!is.na(ola)) %>% 
+  group_by(idencuesta) %>% 
+  slice_max(order_by = ola, n = 1, with_ties = FALSE) %>% 
+  ungroup() %>% 
+  mutate(conf_partidos = case_when(
+    c05_02 == 1 ~ "Nada",
+    c05_02 == 2 ~ "Poca",
+    c05_02 %in% 3:5 ~ "Algo, bastante o mucha",
+    TRUE ~ "NA"
+  )) %>% 
+  count(conf_partidos, .drop = FALSE) %>% 
+    mutate(prop = n / sum(n),
+      pct_label = paste0(floor(prop * 100), "%")) %>% 
+  mutate(
+         conf_partidos = factor(conf_partidos, levels = c("Nada", "Poca", "Algo, bastante o mucha", "NA"))) %>% 
+    ggplot(aes(x = conf_partidos, y = prop, fill = conf_partidos, label = pct_label)) +
+  geom_col(width = 0.35) +
+  geom_text(vjust = -0.4, size = 4) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_fill_manual(values = c("Nada" = "#9BD44C", "Poca" = "#4D7DD1", "Algo, bastante o mucha" = "#7633A5", "NA" = "#9E9E9E")) +
+    labs(title = "Grado de confianza: En los partidos políticos (última ola respondida)",
+      subtitle = "Muestra 1 completa (7 olas) y muestra 2 completa (5 olas)",
+       x = NULL,
+       y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 10))
+
+  ```
 
 # Conclusiones
 
