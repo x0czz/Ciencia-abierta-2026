@@ -58,6 +58,7 @@ csl: "input/bib/apa.csl"
 
 ```{r}
 library(tidyverse)
+library(survey)
 library(haven)
 load("input/data/original/ELSOC_Long_2016_2023.RData")
 
@@ -83,6 +84,88 @@ elsoc_selected_6_4 <- elsoc_long_2016_2023 %>%
   filter((first(muestra) == 1 & n() == 6) | (first(muestra) == 2 & n() == 4)) %>%
   ungroup()
 
+conf_levels <- c("Nada", "Poca", "Algo, bastante o mucha")
+conf_bar_palette <- c("Nada" = "#9BD44C", "Poca" = "#4D7DD1", "Algo, bastante o mucha" = "#7633A5")
+conf_line_palette <- c("Nada" = "#7AD151", "Poca" = "#2A9AB7", "Algo, bastante o mucha" = "#440154")
+
+rec_conf <- function(x) {
+  case_when(
+    x == 1 ~ "Nada",
+    x == 2 ~ "Poca",
+    x %in% 3:5 ~ "Algo, bastante o mucha",
+    TRUE ~ NA_character_
+  )
+}
+
+build_design <- function(data) {
+  svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = data)
+}
+
+plot_conf_bar_weighted <- function(data, value_col, title, subtitle) {
+  plot_data <- data %>%
+    filter(!is.na(ola)) %>%
+    mutate(conf = rec_conf(.data[[value_col]])) %>%
+    filter(!is.na(conf))
+
+  t <- as.data.frame(svytable(~conf, design = build_design(plot_data))) %>%
+    mutate(prop = Freq / sum(Freq, na.rm = TRUE),
+           pct_label = paste0(floor(prop * 100), "%"),
+           conf = factor(conf, levels = conf_levels))
+
+  ggplot(t, aes(x = conf, y = prop, fill = conf, label = pct_label)) +
+    geom_col(width = 0.35) +
+    geom_text(vjust = -0.4, size = 4) +
+    scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+    scale_fill_manual(values = conf_bar_palette) +
+    labs(title = title,
+         subtitle = subtitle,
+         x = NULL,
+         y = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5),
+          axis.text.x = element_text(size = 11),
+          axis.text.y = element_text(size = 10))
+}
+
+plot_conf_long_weighted <- function(data, value_col, title, subtitle) {
+  plot_data <- data %>%
+    filter(!is.na(ola)) %>%
+    mutate(conf = rec_conf(.data[[value_col]])) %>%
+    filter(!is.na(conf))
+
+  t <- as.data.frame(svytable(~conf + ola, design = build_design(plot_data))) %>%
+    mutate(ola = as.numeric(as.character(ola))) %>%
+    group_by(ola) %>%
+    mutate(prop = round(Freq / sum(Freq, na.rm = TRUE), 2)) %>%
+    ungroup() %>%
+    mutate(conf = factor(conf, levels = conf_levels))
+
+  ggplot(t, aes(x = ola, y = prop, color = conf, group = conf, label = scales::percent(prop, accuracy = 1))) +
+    geom_line(linewidth = 0.8) +
+    geom_point(size = 2) +
+    geom_text(vjust = -0.5, size = 3) +
+    scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+    scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+    scale_color_manual(values = conf_line_palette) +
+    labs(title = title,
+         subtitle = subtitle,
+         x = NULL,
+         y = NULL,
+         color = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.position = "top",
+          plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0),
+          plot.subtitle = element_text(hjust = 0),
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10))
+}
+
 
 
 
@@ -105,7 +188,7 @@ Análisis detallado del artículo seleccionado, evaluando los siguientes aspecto
 
   -   **Documentación**: El reporte de la Radiografía de la Cohesión Social incluye una descripción  del método y filtro muestral para su elaboracion. El documento especifica con precisión el diseño de la muestra, las variables seleccionadas y los filtros muestrales aplicados para cada analisis. La transparencia metodológica es suficiente para que, contando únicamente con la base de datos del estudio (ELSOC), se pueda replicar procesamiento de la información y llegar a los mismos resultados presentados en el informe.
 
-  -   **Transparencia**: Se presenta como un trabajo riguroso financiado por fondos públicos a través de la ANID y ejecutado por el centro COES, con el patrocinio de destacadas universidades. Se cuenta con identificación del equipo academico y tectnico. Se describe minuciosamente el diseño muestral y el marco conceptual del Ministerio de Desarrollo Social. No se incluye una declaración explícita de conflictos de interés.
+  -   **Transparencia**: Se presenta como un trabajo riguroso financiado por fondos públicos a través de la ANID y ejecutado por el COES con el patrocinio de destacadas universidades. Se cuenta con identificación del equipo academico y tecnico. Se describe minuciosamente el diseño muestral y el marco conceptual del Ministerio de Desarrollo Social. No se incluye una declaración explícita de conflictos de interés.
 
 # Análisis reproducible
 
@@ -123,16 +206,9 @@ La figura a reproducir corresponde al grado de confianza en el Congreso Nacional
 
 El proceso de reproduccion consistio en intentar la generacion de los analisis presentado en los graficos a partir de la base de datos utilizada en el documento.
 
-Para esto se procuro replicar el mismo metodo de filtrado de la muestra: Aquellos individuos que participaron en las 7 olas de la muestra analitica y en las 5 olas de la muestra de refresco para posteriormente generar los graficos de interes.
+Para esto se procuro replicar el mismo metodo de filtrado de la muestra: Aquellos individuos que participaron en las 7 olas de la muestra analitica y aquellos que participaron en las 5 olas de la muestra de refresco. O, dicho de otra forma, aquellos indivduos sin atricion a lo largo de su respectiva muestra, sea la original o la de refresco.
 
 Segun el estudio, luego de este filtro, se obtiene una muestra de 1303 individuos para la muestra analitica y 770 individuos para la muestra de refresco. Sin embargo, al aplicar el mismo filtro e intentando bajo diferentes metodos, se obtuvo una muestra de 1176 individuos para la muestra analitica y 661 individuos para la muestra de refresco.
-
-
-
-
-
-
-
 
 
 
@@ -173,34 +249,34 @@ elsoc_selected_full %>% distinct(idencuesta, muestra) %>% count(muestra)
 
 Poder Judicial Barra
 ```{r graf-congreso-2023-6-4, fig.cap = 'Grado de confianza en el Congreso Nacional 2023 con filtro hasta ola 6/4'}
-
-elsoc_selected_6_4 <- elsoc_long_2016_2023 %>%
-  filter(!is.na(ola)) %>%
+ell_tmp <- elsoc_long_2016_2023 %>%
+  filter(tipo_atricion == 1) %>%
   filter((muestra == 1 & ola <= 6) | (muestra == 2 & ola <= 4)) %>%
   group_by(idencuesta) %>%
   filter((first(muestra) == 1 & n() == 6) | (first(muestra) == 2 & n() == 4)) %>%
-  ungroup()
-
-elsoc_selected_6_4 %>% 
-  filter(ola == 6) %>% 
-  drop_na(c05_07) %>% 
-  mutate(conf_congreso = case_when(
+  ungroup() %>%
+  filter(ola == 6) %>%
+  mutate(conf = case_when(
     c05_07 == 1 ~ "Nada",
     c05_07 == 2 ~ "Poca",
     c05_07 %in% 3:5 ~ "Algo, bastante o mucha",
     TRUE ~ NA_character_
-  )) %>% 
-  filter(!is.na(conf_congreso)) %>% 
-  count(conf_congreso) %>% 
-  mutate(prop = n / sum(n),
-         conf_congreso = factor(conf_congreso, levels = c("Nada", "Poca", "Algo, bastante o mucha"))) %>% 
-  ggplot(aes(x = conf_congreso, y = prop, fill = conf_congreso, label = scales::percent(prop, accuracy = 1))) +
+  )) %>%
+  filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf, design = ell.svy)) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE),
+         pct_label = paste0(floor(prop * 100), "%"),
+         conf = factor(conf, levels = c("Nada", "Poca", "Algo, bastante o mucha")))
+
+ggplot(t, aes(x = conf, y = prop, fill = conf, label = pct_label)) +
   geom_col(width = 0.35) +
   geom_text(vjust = -0.4, size = 4) +
   scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
   scale_fill_manual(values = c("Nada" = "#9BD44C", "Poca" = "#4D7DD1", "Algo, bastante o mucha" = "#7633A5")) +
-  labs(title = "Grado de confianza: En el congreso nacional",
-       subtitle = "Submuestra hasta ola 6/4",
+  labs(title = "Grado de confianza: En el Congreso Nacional",
+       subtitle = "Submuestra hasta ola 6/4 sin atrición (ponderado)",
        x = NULL,
        y = NULL) +
   theme_minimal(base_size = 12) +
@@ -212,10 +288,51 @@ elsoc_selected_6_4 %>%
         axis.text.x = element_text(size = 11),
         axis.text.y = element_text(size = 10))
 
+Congreso nacional long
+```{r graf-congreso-olas-7-5, fig.cap = 'Evolución del grado de confianza en el Congreso Nacional con filtro 7/5'}
+
+ell_tmp <- elsoc_selected_full %>% filter(tipo_atricion == 1) %>%
+  mutate(conf = case_when(
+    c05_07 == 1 ~ "Nada",
+    c05_07 == 2 ~ "Poca",
+    c05_07 %in% 3:5 ~ "Algo, bastante o mucha",
+    TRUE ~ NA_character_
+  )) %>% filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf + ola, design = ell.svy)) %>%
+  mutate(ola = as.numeric(as.character(ola))) %>%
+  group_by(ola) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(conf = factor(conf, levels = c("Nada", "Poca", "Algo, bastante o mucha")))
+
+ggplot(t, aes(x = ola, y = prop, color = conf, group = conf, label = scales::percent(prop, accuracy = 1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.5, size = 3) +
+  scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_color_manual(values = c("Nada" = "#7AD151", "Poca" = "#2A9AB7", "Algo, bastante o mucha" = "#440154")) +
+  labs(title = "Grado de confianza: El Congreso Nacional",
+       subtitle = "Muestra 1 y 2 sin atrición; ponderado por diseño muestral",
+       x = NULL,
+       y = NULL,
+       color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0),
+        plot.subtitle = element_text(hjust = 0),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10))
+
 
 
 ```
-Poder judicial Long
+
+Congreso nacional long
 ```{r graf-congreso-olas-7-5, fig.cap = 'Evolución del grado de confianza en el Congreso Nacional con filtro 7/5'}
 
 elsoc_selected_full %>% 
@@ -254,73 +371,121 @@ elsoc_selected_full %>%
         axis.text.x = element_text(size = 10),
         axis.text.y = element_text(size = 10))
 
-#---------------------------------------
+```
+Confianza en poder judicial barra
 
-elsoc_selected_full %>% 
-  filter(muestra == 1, !is.na(ola)) %>% 
-  drop_na(c05_07) %>% 
-  mutate(conf_congreso = case_when(
-    c05_07 == 1 ~ "Nada",
-    c05_07 == 2 ~ "Poca",
-    c05_07 %in% 3:5 ~ "Algo, bastante o mucha",
-    TRUE ~ NA_character_
-  )) %>% 
-  filter(!is.na(conf_congreso)) %>% 
-  count(ola, conf_congreso) %>% 
-  group_by(ola) %>% 
-  mutate(prop = n / sum(n)) %>% 
-  ungroup() %>% 
-  mutate(conf_congreso = factor(conf_congreso, levels = c("Nada", "Poca", "Algo, bastante o mucha"))) %>% 
-  ggplot(aes(x = ola, y = prop, color = conf_congreso, group = conf_congreso, label = scales::percent(prop, accuracy = 1))) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 2) +
-  geom_text(vjust = -0.5, size = 3) +
-  scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
-  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-  scale_color_manual(values = c("Nada" = "#7AD151", "Poca" = "#2A9AB7", "Algo, bastante o mucha" = "#440154")) +
-  labs(title = "Grado de confianza: El Congreso Nacional",
-       subtitle = "Solo muestra 1",
-       x = NULL,
-       y = NULL,
-       color = NULL) +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid.major.x = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.position = "top",
-        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0),
-        plot.subtitle = element_text(hjust = 0),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10))
+```{r graf-poder-judicial-2023-sin-atricion, fig.cap = 'Grado de confianza en el poder judicial 2023 con datos sin atrición'}
+
+plot_conf_bar_weighted(
+  elsoc_selected_full %>%
+    filter(tipo_atricion == 1) %>%
+    filter(!is.na(ola)) %>%
+    group_by(idencuesta) %>%
+    slice_max(order_by = ola, n = 1, with_ties = FALSE) %>%
+    ungroup(),
+  "c05_05",
+  "Grado de confianza: En el poder judicial (última ola respondida)",
+  "Muestra 1 (7 olas) y muestra 2 (5 olas) sin atrición"
+)
 
 ```
 
-Confianza en partidos politicos
+Confianza en poder judicial long
 
-```{r graf-partidos-2023-7-5, fig.cap = 'Grado de confianza en los partidos políticos 2023 con filtro 7/5'}
+```{r graf-poder-judicial-olas-7-5, fig.cap = 'Evolución del grado de confianza en el poder judicial con muestra 1 y 2 sin atrición'}
 
-elsoc_selected_full %>% 
-  filter(!is.na(ola)) %>% 
-  group_by(idencuesta) %>% 
-  slice_max(order_by = ola, n = 1, with_ties = FALSE) %>% 
-  ungroup() %>% 
-  mutate(conf_partidos = case_when(
-    c05_02 == 1 ~ "Nada",
-    c05_02 == 2 ~ "Poca",
-    c05_02 %in% 3:5 ~ "Algo, bastante o mucha",
-    TRUE ~ "NA"
-  )) %>% 
-  count(conf_partidos, .drop = FALSE) %>% 
-    mutate(prop = n / sum(n),
-      pct_label = paste0(floor(prop * 100), "%")) %>% 
-  mutate(
-         conf_partidos = factor(conf_partidos, levels = c("Nada", "Poca", "Algo, bastante o mucha", "NA"))) %>% 
-    ggplot(aes(x = conf_partidos, y = prop, fill = conf_partidos, label = pct_label)) +
+plot_conf_long_weighted(
+  elsoc_selected_full %>% filter(tipo_atricion == 1),
+  "c05_05",
+  "Grado de confianza: El Poder Judicial",
+  "Muestra 1 y 2 sin atrición; ponderado por diseño muestral"
+)
+
+```
+
+Confianza en partidos politicos barra
+
+```{r graf-partidos-2023-sin-atricion, fig.cap = 'Grado de confianza en los partidos políticos 2023 con datos sin atrición'}
+
+plot_conf_bar_weighted(
+  elsoc_selected_full %>%
+    filter(tipo_atricion == 1) %>%
+    filter(!is.na(ola)) %>%
+    group_by(idencuesta) %>%
+    slice_max(order_by = ola, n = 1, with_ties = FALSE) %>%
+    ungroup(),
+  "c05_02",
+  "Grado de confianza: En los partidos políticos (última ola respondida)",
+  "Muestra 1 (7 olas) y muestra 2 (5 olas) sin atrición"
+)
+
+  ```
+
+Confianza en partidos politicos Long
+
+```{r graf-partidos-olas-7-5, fig.cap = 'Evolución de confianza en partidos políticos (c05_02) 2016-2023, sin atrición'}
+
+plot_conf_long_weighted(
+  elsoc_selected_full %>% filter(tipo_atricion == 1),
+  "c05_02",
+  "Grado de confianza: Los Partidos Políticos",
+  "Muestra 1 y 2 sin atrición; ponderado por diseño muestral"
+)
+
+```
+
+Confianza en carabineros barra.
+
+```{r graf-carabineros-2023-muestra1-ola7, fig.cap = 'Grado de confianza en Carabineros 2023 con muestra 1, ola 7'}
+
+plot_conf_bar_weighted(
+  elsoc_long_2016_2023 %>% filter(tipo_atricion == 1, muestra == 1, ola == 7),
+  "c05_03",
+  "Grado de confianza: En Carabineros 2023",
+  "Solo muestra 1, ola 7"
+)
+
+```
+
+Confianza en carabineros long 
+```{r graf-carabineros-olas-7-5, fig.cap = 'Evolución del grado de confianza en Carabineros con muestra 1 y 2 sin atrición'}
+
+plot_conf_long_weighted(
+  elsoc_selected_full %>% filter(tipo_atricion == 1),
+  "c05_03",
+  "Grado de confianza: Los Carabineros",
+  "Muestra 1 y 2 sin atrición; ponderado por diseño muestral"
+)
+
+```
+
+## Bloques finales: reprocesamiento por gráfico
+
+Los siguientes bloques vuelven a ejecutar el procedimiento ponderado por diseño para cada uno de los gráficos del módulo C (barra última observación + serie temporal).
+
+```{r final-c05_07-bar, fig.cap='Final — Congreso (barra, última observación)'}
+ell_tmp <- elsoc_selected_full %>%
+  filter(tipo_atricion == 1) %>%
+  filter(!is.na(ola)) %>%
+  group_by(idencuesta) %>%
+  slice_max(order_by = ola, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  mutate(conf = rec_conf(c05_07)) %>%
+  filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf, design = ell.svy)) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE),
+         pct_label = paste0(floor(prop * 100), "%"),
+         conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = conf, y = prop, fill = conf, label = pct_label)) +
   geom_col(width = 0.35) +
   geom_text(vjust = -0.4, size = 4) +
   scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-  scale_fill_manual(values = c("Nada" = "#9BD44C", "Poca" = "#4D7DD1", "Algo, bastante o mucha" = "#7633A5", "NA" = "#9E9E9E")) +
-    labs(title = "Grado de confianza: En los partidos políticos (última ola respondida)",
-      subtitle = "Muestra 1 completa (7 olas) y muestra 2 completa (5 olas)",
+  scale_fill_manual(values = conf_bar_palette) +
+  labs(title = "Grado de confianza: En el Congreso Nacional (última obs)",
+       subtitle = "Ponderado por diseño muestral",
        x = NULL,
        y = NULL) +
   theme_minimal(base_size = 12) +
@@ -328,11 +493,227 @@ elsoc_selected_full %>%
         panel.grid.minor = element_blank(),
         legend.position = "none",
         plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0.5),
-        plot.subtitle = element_text(hjust = 0.5),
-        axis.text.x = element_text(size = 11),
-        axis.text.y = element_text(size = 10))
+        plot.subtitle = element_text(hjust = 0.5))
+```
 
-  ```
+```{r final-c05_07-long, fig.cap='Final — Congreso (serie temporal)'}
+ell_tmp <- elsoc_selected_full %>% filter(tipo_atricion == 1) %>%
+  mutate(conf = rec_conf(c05_07)) %>% filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf + ola, design = ell.svy)) %>%
+  mutate(ola = as.numeric(as.character(ola))) %>%
+  group_by(ola) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = ola, y = prop, color = conf, group = conf, label = scales::percent(prop, accuracy = 1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.5, size = 3) +
+  scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_color_manual(values = conf_line_palette) +
+  labs(title = "Grado de confianza: En el Congreso Nacional (serie)",
+       subtitle = "Ponderado por diseño muestral",
+       x = NULL,
+       y = NULL,
+       color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0))
+```
+
+```{r final-c05_05-bar, fig.cap='Final — Poder Judicial (barra, última observación)'}
+ell_tmp <- elsoc_selected_full %>%
+  filter(tipo_atricion == 1) %>%
+  filter(!is.na(ola)) %>%
+  group_by(idencuesta) %>%
+  slice_max(order_by = ola, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  mutate(conf = rec_conf(c05_05)) %>%
+  filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf, design = ell.svy)) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE),
+         pct_label = paste0(floor(prop * 100), "%"),
+         conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = conf, y = prop, fill = conf, label = pct_label)) +
+  geom_col(width = 0.35) +
+  geom_text(vjust = -0.4, size = 4) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_fill_manual(values = conf_bar_palette) +
+  labs(title = "Grado de confianza: En el Poder Judicial (última obs)",
+       subtitle = "Ponderado por diseño muestral",
+       x = NULL,
+       y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0.5))
+```
+
+```{r final-c05_05-long, fig.cap='Final — Poder Judicial (serie temporal)'}
+ell_tmp <- elsoc_selected_full %>% filter(tipo_atricion == 1) %>%
+  mutate(conf = rec_conf(c05_05)) %>% filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf + ola, design = ell.svy)) %>%
+  mutate(ola = as.numeric(as.character(ola))) %>%
+  group_by(ola) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = ola, y = prop, color = conf, group = conf, label = scales::percent(prop, accuracy = 1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.5, size = 3) +
+  scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_color_manual(values = conf_line_palette) +
+  labs(title = "Grado de confianza: En el Poder Judicial (serie)",
+       subtitle = "Ponderado por diseño muestral",
+       x = NULL,
+       y = NULL,
+       color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0))
+```
+
+```{r final-c05_02-bar, fig.cap='Final — Partidos (barra, última observación)'}
+ell_tmp <- elsoc_selected_full %>%
+  filter(tipo_atricion == 1) %>%
+  filter(!is.na(ola)) %>%
+  group_by(idencuesta) %>%
+  slice_max(order_by = ola, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  mutate(conf = rec_conf(c05_02)) %>%
+  filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf, design = ell.svy)) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE),
+         pct_label = paste0(floor(prop * 100), "%"),
+         conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = conf, y = prop, fill = conf, label = pct_label)) +
+  geom_col(width = 0.35) +
+  geom_text(vjust = -0.4, size = 4) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_fill_manual(values = conf_bar_palette) +
+  labs(title = "Grado de confianza: En los Partidos Políticos (última obs)",
+       subtitle = "Ponderado por diseño muestral",
+       x = NULL,
+       y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0.5))
+```
+
+```{r final-c05_02-long, fig.cap='Final — Partidos (serie temporal)'}
+ell_tmp <- elsoc_selected_full %>% filter(tipo_atricion == 1) %>%
+  mutate(conf = rec_conf(c05_02)) %>% filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf + ola, design = ell.svy)) %>%
+  mutate(ola = as.numeric(as.character(ola))) %>%
+  group_by(ola) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = ola, y = prop, color = conf, group = conf, label = scales::percent(prop, accuracy = 1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.5, size = 3) +
+  scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_color_manual(values = conf_line_palette) +
+  labs(title = "Grado de confianza: En los Partidos Políticos (serie)",
+       subtitle = "Ponderado por diseño muestral",
+       x = NULL,
+       y = NULL,
+       color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0))
+```
+
+```{r final-c05_03-bar, fig.cap='Final — Carabineros (barra, última observación)'}
+ell_tmp <- elsoc_selected_full %>%
+  filter(tipo_atricion == 1) %>%
+  filter(!is.na(ola)) %>%
+  group_by(idencuesta) %>%
+  slice_max(order_by = ola, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  mutate(conf = rec_conf(c05_03)) %>%
+  filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf, design = ell.svy)) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE),
+         pct_label = paste0(floor(prop * 100), "%"),
+         conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = conf, y = prop, fill = conf, label = pct_label)) +
+  geom_col(width = 0.35) +
+  geom_text(vjust = -0.4, size = 4) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_fill_manual(values = conf_bar_palette) +
+  labs(title = "Grado de confianza: En Carabineros (última obs)",
+       subtitle = "Ponderado por diseño muestral",
+       x = NULL,
+       y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0.5))
+```
+
+```{r final-c05_03-long, fig.cap='Final — Carabineros (serie temporal)'}
+ell_tmp <- elsoc_selected_full %>% filter(tipo_atricion == 1) %>%
+  mutate(conf = rec_conf(c05_03)) %>% filter(!is.na(conf))
+
+ell.svy <- svydesign(ids = ~segmento_disenno, weights = ~ponderador02, data = ell_tmp)
+t <- as.data.frame(svytable(~conf + ola, design = ell.svy)) %>%
+  group_by(ola) %>%
+  mutate(prop = Freq / sum(Freq, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(conf = factor(conf, levels = conf_levels))
+
+ggplot(t, aes(x = ola, y = prop, color = conf, group = conf, label = scales::percent(prop, accuracy = 1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.5, size = 3) +
+  scale_x_continuous(breaks = 1:7, labels = c("2016", "2017", "2018", "2019", "2021", "2022", "2023")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_color_manual(values = conf_line_palette) +
+  labs(title = "Grado de confianza: En Carabineros (serie)",
+       subtitle = "Ponderado por diseño muestral",
+       x = NULL,
+       y = NULL,
+       color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top",
+        plot.title = element_text(color = "#1676D2", face = "bold", hjust = 0))
+```
 
 # Conclusiones
 
