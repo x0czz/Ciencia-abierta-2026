@@ -39,7 +39,16 @@ Murua_Outerbridge/
  |  |  |  |- ELSOC_selected_full.RDS
  |  |  |  |- ELSOC_selected_no_ola5.RDS
  |  |- images/
+ |  |  |- carabineros barra.png
+ |  |  |- carabineros serie.png
+ |  |  |- congreso barra.png
+ |  |  |- congreso serie.png
+ |  |  |- judicial barra.png
+ |  |  |- judicial serie.png
+ |  |  |- partidos barra.png
+ |  |  |- partidos serie.png
  |  |- original-code/
+ |  |  |- og_proc.R
  |- libs/
  |  |- ocs.scss
  |- output/
