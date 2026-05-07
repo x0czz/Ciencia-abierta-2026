@@ -53,6 +53,24 @@ Murua_Outerbridge/
  |  |- ocs.scss
  |- output/
  |  |- graphs/
+ |  |  |- chunks/
+ |  |  |  |- 003_final-c05_07-bar.png
+ |  |  |  |- 004_final-c05_07-long.png
+ |  |  |  |- 005_final-c05_05-bar.png
+ |  |  |  |- 006_final-c05_05-long.png
+ |  |  |  |- 007_final-c05_02-bar.png
+ |  |  |  |- 008_final-c05_02-long.png
+ |  |  |  |- 009_final-c05_03-bar.png
+ |  |  |  |- 010_final-c05_03-long.png
+ |  |  |  |- 011_graf-congreso-2023-6-4.png
+ |  |  |  |- 012_graf-congreso-olas-7-5-alt.png
+ |  |  |  |- 013_graf-congreso-olas-7-5.png
+ |  |  |  |- 014_graf-poder-judicial-2023-sin-atricion.png
+ |  |  |  |- 015_graf-poder-judicial-olas-7-5.png
+ |  |  |  |- 016_graf-partidos-2023-sin-atricion.png
+ |  |  |  |- 017_graf-partidos-olas-7-5.png
+ |  |  |  |- 018_graf-carabineros-2023-muestra1-ola7.png
+ |  |  |  |- 019_graf-carabineros-olas-7-5.png
  |  |- tables/
  |- processing/
  |  |- 04-cohesion-social.Rmd
@@ -64,6 +82,7 @@ Murua_Outerbridge/
  |  |- prod_prep.html
  |- script visualizacion
  |- scripts/
+ |  |- exportar_graficos_chunks.R
  |  |- update-working-tree.sh
 ```
 <!-- WORKING_TREE_END -->
